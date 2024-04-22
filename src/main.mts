@@ -86,9 +86,7 @@ class TagService implements ITagService {
           Accept: "application/json",
         };
 
-        if (apiKey) {
-          headers["Authorization"] = `Bearer ${apiKey}`;
-        }
+        headers["Authorization"] = `Bearer ${apiKey}`;
 
         const response = await fetch(subgraphUrl, {
           method: "POST",
@@ -109,7 +107,9 @@ class TagService implements ITagService {
 
         allTags.push(...transformPoolsToTags(chainId, pools));
 
+        //using cursor-based pagination here:
         isMore = pools.length === 1000;
+
         if (isMore) {
           lastTimestamp = parseInt(
             pools[pools.length - 1].createTime.toString()
@@ -132,15 +132,27 @@ const tagService = new TagService();
 // Exporting the returnTags method directly
 export const returnTags = tagService.returnTags;
 
+function truncateString(text: string, maxLength: number) {
+  if (text.length > maxLength) {
+    return text.substring(0, maxLength - 3) + "..."; // Subtract 3 for the ellipsis
+  }
+  return text;
+}
+
 // Local helper function used by returnTags
 function transformPoolsToTags(chainId: string, pools: Pool[]): ContractTag[] {
-  return pools.map((pool) => ({
-    "Contract Address": `eip155:${chainId}:${pool.address}`,
-    "Public Name Tag": `${pool.tokens.map((t) => t.symbol).join("/")} Pool`,
-    "Project Name": "Balancer v2",
-    "UI/Website Link": "https://balancer.fi/",
-    "Public Note": `A Balancer v2 pool with tokens ${pool.tokens
-      .map((t) => t.name)
-      .join(", ")}.`,
-  }));
+  return pools.map((pool) => {
+    const maxSymbolsLength = 45;
+    const symbolsText = pool.tokens.map((t) => t.symbol).join("/");
+    const truncatedSymbolsText = truncateString(symbolsText, maxSymbolsLength);
+    return {
+      "Contract Address": `eip155:${chainId}:${pool.address}`,
+      "Public Name Tag": `${truncatedSymbolsText} Pool`,
+      "Project Name": "Balancer v2",
+      "UI/Website Link": "https://balancer.fi",
+      "Public Note": `A Balancer v2 pool with the tokens: ${pool.tokens
+        .map((t) => t.name)
+        .join(", ")}.`,
+    };
+  });
 }
